@@ -1,3 +1,0 @@
-CREATE TABLE IF NOT EXISTS facturas (
-    id INTEGER
-)
