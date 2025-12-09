@@ -46,3 +46,20 @@ class DatabaseService:
                  
         cursor = self.conn.execute(base_query, valores)
         return cursor.fetchall()
+    
+    def actualizar_factura(self, factura_id, nuevos_datos):
+        campos = ", ".join([f"{k} = ?" for k in nuevos_datos.keys()])
+        valores =list (nuevos_datos.values())
+        valores.append(factura_id)
+        
+        query = f"UPDATE facturas SET {campos} WHERE id = ?"
+        self.conn.execute(query, valores)
+        self.conn.commit()
+        
+        
+    def eliminar_factura(self, factura_id):
+        query="DELETE FROM facturas WHERE id =  ?"
+        self.conn.execute (query, (factura_id,))
+        self.conn.commit()
+        
+        
