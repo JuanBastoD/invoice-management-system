@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+.models/__pycache__
+.services/__pycache__
+*.pyc
+
+
+# Entornos virtuales
+venv/
+
+# Archivos de pytest
+.pytest_cache/
+
+# PDF de pruebas
+facturas/*.pdf
+src/models/__pycache__/gestor_facturas.cpython-313.pyc
+src/services/__pycache__/database_service.cpython-313.pyc
