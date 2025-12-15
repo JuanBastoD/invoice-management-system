@@ -21,6 +21,7 @@ class GestorDeFacturas:
 
         for row in rows:
             _, tipo, entidad, estado, fecha_e, fecha_v, monto, desc, path = row
+            id = row[0]
             facturas.append(
                 Factura(
                     tipo=tipo,
@@ -30,7 +31,8 @@ class GestorDeFacturas:
                     fecha_vencimiento=fecha_v,
                     monto=monto,
                     descripcion=desc,
-                    path_pdf=path
+                    path_pdf=path,
+                    id=id
                 )
             )
 

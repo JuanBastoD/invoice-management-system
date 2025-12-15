@@ -5,7 +5,7 @@ SCHEMA_PATH = os.path.join("database", "schema.sql")
 
 class DatabaseService:
     def __init__(self):
-         self.conn =sqlite3.connect(DB_PATH)
+         self.conn =sqlite3.connect(DB_PATH, check_same_thread=False)
          self.create_schema()
          
     def create_schema(self):
