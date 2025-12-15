@@ -1,6 +1,7 @@
 from src.models.factura import Factura
 from .validaciones import validar_factura_data
 from src.services.database_service import DatabaseService
+from src.funcional import filtrar_por_estado, total_por_mes
 
 
 class GestorDeFacturas:
@@ -94,3 +95,11 @@ class GestorDeFacturas:
         cursor = self.db.conn.execute(query, (entidad,))
         resultado = cursor.fetchone()[0]
         return resultado or 0
+    
+    def obtener_pendientes(self):
+        filas = self.obtener_facturas()
+        return filtrar_por_estado("pendiente")
+    
+    def obtener_total_mensual(self, year, month):
+        filas = self.obtener_facturas()
+        return total_por_mes(filas, year, month)
