@@ -1,9 +1,18 @@
 from fastapi import FastAPI
 from src.models.gestor_facturas import GestorDeFacturas
 from src.models.schema import FacturaIn, FacturaOut
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 gestor = GestorDeFacturas()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # para desarrollo
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Convertir objeto OOP Factura → dict compatible con FastAPI
 def factura_to_dict(f):
@@ -40,3 +49,21 @@ def crear_factura(data: FacturaIn):
 def eliminar_factura(id: int):
     gestor.eliminar_factura(id)
     return {"mensaje": "Factura eliminada"}
+
+@app.get("/estadisticas")
+def estadisticas():
+    facturas = gestor.obtener_facturas()
+
+    total_facturas = len(facturas)
+    total_monto = sum(f.monto for f in facturas)
+    pagadas = len([f for f in facturas if f.estado == "pagada"])
+    pendientes = len([f for f in facturas if f.estado == "pendiente"])
+    vencidas = len([f for f in facturas if f.estado == "vencida"])
+
+    return {
+        "total_facturas": total_facturas,
+        "total_monto": total_monto,
+        "pagadas": pagadas,
+        "pendientes": pendientes,
+        "vencidas": vencidas
+    }
