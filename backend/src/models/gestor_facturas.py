@@ -105,3 +105,8 @@ class GestorDeFacturas:
     def obtener_total_mensual(self, year, month):
         filas = self.obtener_facturas()
         return total_por_mes(filas, year, month)
+
+    def obtener_facturas_raw(self):
+        query = "SELECT id, tipo, entidad, estado, fecha_emision, fecha_vencimiento, monto, descripcion, path_pdf FROM facturas"
+        cursor = self.db.conn.execute(query)
+        return cursor.fetchall()
