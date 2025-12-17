@@ -1,7 +1,15 @@
 import sqlite3
 import os
-DB_PATH = os.path.join("database", "facturas.db")
-SCHEMA_PATH = os.path.join("database", "schema.sql")
+
+# Carpeta donde está este archivo (services)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Ruta absoluta a la base de datos y al schema
+DB_PATH = os.path.join(BASE_DIR, "..", "..", "database", "facturas.db")
+SCHEMA_PATH = os.path.join(BASE_DIR, "..", "..", "database", "schema.sql")
+
+# Crear carpeta si no existe
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
 class DatabaseService:
@@ -51,7 +59,6 @@ class DatabaseService:
 
         cursor = self.conn.execute(base_query, valores)
         return cursor.fetchall()  # ahora devuelve dict-like rows
-
 
 
     def actualizar_factura(self, factura_id, nuevos_datos):

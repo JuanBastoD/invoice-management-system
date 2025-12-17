@@ -1,6 +1,4 @@
-DROP TABLE IF EXISTS facturas;
-
-CREATE TABLE facturas (
+CREATE TABLE IF NOT EXISTS facturas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numero_factura TEXT NOT NULL UNIQUE,
     tipo TEXT NOT NULL,

@@ -38,10 +38,18 @@ class GestorDeFacturas:
 
         return facturas
 
-
+    def obtener_por_id(self, factura_id: int):
+            facturas = self.obtener_facturas()
+            for f in facturas:
+                if f.id == factura_id:
+                    return f
+            return None
 
     def actualizar_factura(self, factura_id, nuevos_datos):
-        return self.db.actualizar_factura(factura_id, nuevos_datos)
+        # Limpieza: eliminar keys con valor None para no sobreescribir con NULL
+        datos_limpios = {k: v for k, v in nuevos_datos.items() if v is not None}
+        return self.db.actualizar_factura(factura_id, datos_limpios)
+
 
     def eliminar_factura(self, factura_id):
         self.db.eliminar_factura(factura_id)
@@ -90,7 +98,7 @@ class GestorDeFacturas:
         return total_por_mes(filas, year, month)
 
     def obtener_facturas_raw(self):
-        query = "SELECT id, ,numero_factura, tipo, entidad, estado, fecha_emision, fecha_vencimiento, monto, descripcion, path_pdf FROM facturas"
+        query = "SELECT id, numero_factura, tipo, entidad, estado, fecha_emision, fecha_vencimiento, monto, descripcion, path_pdf FROM facturas"
         cursor = self.db.conn.execute(query)
         return cursor.fetchall()
 
