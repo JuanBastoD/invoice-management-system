@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
 import shutil
+import logging
 
 from src.models.gestor_facturas import GestorDeFacturas
 from src.models.schema import FacturaIn, FacturaOut
@@ -47,18 +48,20 @@ def obtener_facturas():
     return [factura_to_dict(f) for f in facturas]
 
 
-@app.get("/facturas/{id}", response_model=FacturaOut)
-def obtener_factura(id: int):
-    f = gestor.obtener_factura_por_id(id)
+@app.get("/facturas/numero/{numero}")
+def obtener_factura_por_numero(numero: str):
+    f = gestor.obtener_por_numero(numero)
     if not f:
         return {"error": "Factura no encontrada"}
     return factura_to_dict(f)
 
 
-@app.post("/facturas", response_model=FacturaOut)
-def crear_factura(data: FacturaIn = Body(...)):
-    nueva = gestor.crear_factura(**data.dict())
-    return factura_to_dict(nueva)
+@app.post("/facturas")
+async def crear_factura(data: FacturaIn):
+    logging.info("Datos recibidos: %s", data.dict())
+    factura = gestor.crear_factura(**data.dict())
+    logging.info("Factura creada: %s", factura_to_dict(factura))
+    return factura_to_dict(factura)
 
 
 @app.delete("/facturas/{id}")
@@ -83,14 +86,16 @@ def obtener_estadisticas():
     }
 
 
+logging.basicConfig(level=logging.INFO)
+
+
 @app.post("/upload/pdf")
 async def upload_pdf(pdf: UploadFile):
-    save_path = os.path.join("facturas", pdf.filename)
-
+    filename = pdf.filename.replace(" ", "_")  # reemplaza espacios
+    save_path = os.path.join("facturas", filename)
     with open(save_path, "wb") as buffer:
         shutil.copyfileobj(pdf.file, buffer)
-
-    return {"path_pdf": pdf.filename}
+    return {"path_pdf": f"facturas/{filename}"}
 
 
 app.mount("/pdf", StaticFiles(directory="facturas"), name="pdf")
