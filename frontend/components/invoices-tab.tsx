@@ -11,6 +11,7 @@ export function InvoicesTab() {
   const [searchQuery, setSearchQuery] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const handleEdit = (invoice: any) => {
     setSelectedInvoice(invoice)
@@ -20,6 +21,10 @@ export function InvoicesTab() {
   const handleCreate = () => {
     setSelectedInvoice(null)
     setIsDialogOpen(true)
+  }
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1)
   }
 
   return (
@@ -40,14 +45,14 @@ export function InvoicesTab() {
         </Button>
       </div>
 
-      <InvoicesList searchQuery={searchQuery} onEdit={handleEdit} />
+      <InvoicesList searchQuery={searchQuery} onEdit={handleEdit} refreshKey={refreshKey} />
 
       <InvoiceDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
-        onCreated={() => {/* refetch facturas */ }}
+        onCreated={handleRefresh}
+        invoice={selectedInvoice}
       />
-
     </div>
   )
 }

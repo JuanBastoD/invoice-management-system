@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Eye } from "lucide-react"
+import { Trash2, Eye, Edit } from "lucide-react"
 
 interface Invoice {
   id: number
+  numero_factura: string
   tipo: string
   entidad: string
   estado: string
@@ -19,9 +20,14 @@ interface Invoice {
   path_pdf: string
 }
 
-export function InvoicesList() {
+interface InvoicesListProps {
+  searchQuery: string
+  onEdit: (invoice: Invoice) => void
+  refreshKey: number
+}
+
+export function InvoicesList({ searchQuery, onEdit, refreshKey }: InvoicesListProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [refreshKey, setRefreshKey] = useState(0)
 
   const fetchInvoices = async () => {
     try {
@@ -38,18 +44,19 @@ export function InvoicesList() {
   }, [refreshKey])
 
   const handleDelete = async (id: number) => {
-    // opcional: POST/DELETE al backend si lo implementas
-    setInvoices(invoices.filter((inv) => inv.id !== id))
+    try {
+      const res = await fetch(`http://localhost:8000/facturas/${id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Error eliminando factura")
+      fetchInvoices()
+    } catch (error) {
+      console.error(error)
+      alert("No se pudo eliminar la factura")
+    }
   }
 
   const handleViewPDF = (path_pdf: string) => {
-    // Solo tomamos el nombre del archivo
     const filename = path_pdf.split("/").pop()
-    if (filename) {
-      window.open(`http://localhost:8000/pdf/${filename}`, "_blank")
-    } else {
-      console.error("Nombre de archivo no válido:", path_pdf)
-    }
+    if (filename) window.open(`http://localhost:8000/pdf/${filename}`, "_blank")
   }
 
   const getStatusBadge = (estado: string) => {
@@ -58,9 +65,15 @@ export function InvoicesList() {
       pagada: { label: "Pagada", className: "bg-green-500 text-white" },
       vencida: { label: "Vencida", className: "bg-red-500 text-white" },
     }
-    const variant = variants[estado] || { label: estado, className: "bg-gray-500 text-white" }
-    return <Badge className={variant.className}>{variant.label}</Badge>
+    return <Badge className={variants[estado]?.className || "bg-gray-500 text-white"}>{variants[estado]?.label || estado}</Badge>
   }
+
+  const filteredInvoices = invoices.filter(
+    (inv) =>
+      inv.entidad?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.tipo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.numero_factura?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <Card>
@@ -73,43 +86,42 @@ export function InvoicesList() {
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
+                <TableHead>Número</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Entidad</TableHead>
                 <TableHead>Monto</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Fecha Emisión</TableHead>
+                <TableHead>Fecha Vencimiento</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.length === 0 ? (
+              {filteredInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={9} className="h-24 text-center">
                     No se encontraron facturas.
                   </TableCell>
                 </TableRow>
               ) : (
-                invoices.map((invoice) => (
+                filteredInvoices.map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell>{invoice.id}</TableCell>
+                    <TableCell>{invoice.numero_factura}</TableCell>
                     <TableCell>{invoice.tipo}</TableCell>
                     <TableCell>{invoice.entidad}</TableCell>
                     <TableCell>${invoice.monto.toLocaleString()}</TableCell>
                     <TableCell>{getStatusBadge(invoice.estado)}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewPDF(invoice.path_pdf)}
-                        className="gap-2"
-                      >
+                    <TableCell>{invoice.fecha_emision}</TableCell>
+                    <TableCell>{invoice.fecha_vencimiento || "-"}</TableCell>
+                    <TableCell className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => handleViewPDF(invoice.path_pdf)}>
                         <Eye className="h-4 w-4" /> Ver PDF
                       </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(invoice.id)}
-                        className="ml-2 gap-2"
-                      >
+                      <Button variant="default" size="sm" onClick={() => onEdit(invoice)}>
+                        <Edit className="h-4 w-4" /> Editar
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(invoice.id)}>
                         <Trash2 className="h-4 w-4" /> Eliminar
                       </Button>
                     </TableCell>

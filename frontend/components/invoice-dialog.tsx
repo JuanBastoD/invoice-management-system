@@ -25,9 +25,10 @@ interface InvoiceDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: () => void
+  invoice?: any
 }
 
-export function InvoiceDialog({ open, onOpenChange, onCreated }: InvoiceDialogProps) {
+export function InvoiceDialog({ open, onOpenChange, onCreated, invoice }: InvoiceDialogProps) {
   const [numeroFactura, setNumeroFactura] = useState("")
   const [tipo, setTipo] = useState("")
   const [entidad, setEntidad] = useState("")
@@ -40,7 +41,17 @@ export function InvoiceDialog({ open, onOpenChange, onCreated }: InvoiceDialogPr
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!open) {
+    if (invoice) {
+      setNumeroFactura(invoice.numero_factura || "")
+      setTipo(invoice.tipo || "")
+      setEntidad(invoice.entidad || "")
+      setEstado(invoice.estado || "pendiente")
+      setMonto(invoice.monto?.toString() || "")
+      setDescripcion(invoice.descripcion || "")
+      setFechaEmision(invoice.fecha_emision || "")
+      setFechaVencimiento(invoice.fecha_vencimiento || "")
+      setArchivo(null)
+    } else if (!open) {
       setNumeroFactura("")
       setTipo("")
       setEntidad("")
@@ -50,17 +61,11 @@ export function InvoiceDialog({ open, onOpenChange, onCreated }: InvoiceDialogPr
       setFechaEmision("")
       setFechaVencimiento("")
       setArchivo(null)
-      setLoading(false)
     }
-  }, [open])
+  }, [open, invoice])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!archivo) {
-      alert("Debes adjuntar un PDF")
-      return
-    }
 
     if (!numeroFactura || !tipo || !entidad || !fechaEmision || !monto) {
       alert("Completa todos los campos obligatorios")
@@ -69,54 +74,55 @@ export function InvoiceDialog({ open, onOpenChange, onCreated }: InvoiceDialogPr
 
     try {
       setLoading(true)
+      let path_pdf = invoice?.path_pdf || null
 
-      // 1️⃣ Subir PDF
-      const formData = new FormData()
-      formData.append("pdf", archivo)
+      if (archivo) {
+        const formData = new FormData()
+        formData.append("pdf", archivo)
+        const pdfRes = await fetch("http://localhost:8000/upload/pdf", {
+          method: "POST",
+          body: formData,
+        })
+        if (!pdfRes.ok) throw new Error("Error subiendo PDF")
+        const data = await pdfRes.json()
+        path_pdf = data.path_pdf
+      }
 
-      const pdfRes = await fetch("http://localhost:8000/upload/pdf", {
-        method: "POST",
-        body: formData,
-      })
-
-
-      if (!pdfRes.ok) throw new Error("Error subiendo PDF")
-
-      const { path_pdf } = await pdfRes.json()
-
-      // 2️⃣ Crear factura
       const facturaData = {
         numero_factura: numeroFactura,
         tipo,
         entidad,
         estado,
-        fecha_emision: fechaEmision,
-        fecha_vencimiento: fechaVencimiento || null,
         monto: parseFloat(monto),
         descripcion: descripcion || null,
+        fecha_emision: fechaEmision,
+        fecha_vencimiento: fechaVencimiento || null,
         path_pdf,
       }
 
-
-      const facturaRes = await fetch("http://localhost:8000/facturas", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(facturaData),
-      })
-
-      if (!facturaRes.ok) {
-        const err = await facturaRes.json()
-        console.error("Error backend:", err)
-        throw new Error("Error creando factura")
+      if (invoice) {
+        // Editar factura
+        const res = await fetch(`http://localhost:8000/facturas/${invoice.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(facturaData),
+        })
+        if (!res.ok) throw new Error("Error editando factura")
+      } else {
+        // Crear factura
+        const res = await fetch("http://localhost:8000/facturas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(facturaData),
+        })
+        if (!res.ok) throw new Error("Error creando factura")
       }
 
       onOpenChange(false)
       onCreated()
     } catch (err: any) {
       console.error(err)
-      alert("No se pudo crear la factura: " + (err.message || err))
+      alert("Error: " + (err.message || err))
     } finally {
       setLoading(false)
     }
@@ -126,21 +132,18 @@ export function InvoiceDialog({ open, onOpenChange, onCreated }: InvoiceDialogPr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Nueva Factura</DialogTitle>
+          <DialogTitle>{invoice ? "Editar Factura" : "Nueva Factura"}</DialogTitle>
           <DialogDescription>
-            Registra una nueva factura en el sistema.
+            {invoice ? "Modifica los datos de la factura existente." : "Registra una nueva factura en el sistema."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Campos idénticos a los que ya tenías */}
+          {/* Número de factura, tipo, entidad, estado, monto, descripción, fechas y PDF */}
           <div>
             <Label>Número de factura</Label>
-            <Input
-              value={numeroFactura}
-              onChange={(e) => setNumeroFactura(e.target.value)}
-              placeholder="Ej: ASU17266178D"
-              required
-            />
+            <Input value={numeroFactura} onChange={(e) => setNumeroFactura(e.target.value)} required />
           </div>
 
           <div>
@@ -158,11 +161,7 @@ export function InvoiceDialog({ open, onOpenChange, onCreated }: InvoiceDialogPr
 
           <div>
             <Label>Entidad</Label>
-            <Input
-              value={entidad}
-              onChange={(e) => setEntidad(e.target.value)}
-              required
-            />
+            <Input value={entidad} onChange={(e) => setEntidad(e.target.value)} required />
           </div>
 
           <div>
@@ -181,64 +180,36 @@ export function InvoiceDialog({ open, onOpenChange, onCreated }: InvoiceDialogPr
 
           <div>
             <Label>Monto</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={monto}
-              onChange={(e) => setMonto(e.target.value)}
-              required
-            />
+            <Input type="number" step="0.01" value={monto} onChange={(e) => setMonto(e.target.value)} required />
           </div>
 
           <div>
             <Label>Descripción</Label>
-            <Textarea
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-            />
+            <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Fecha emisión</Label>
-              <Input
-                type="date"
-                value={fechaEmision}
-                onChange={(e) => setFechaEmision(e.target.value)}
-                required
-              />
+              <Input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} required />
             </div>
             <div>
               <Label>Fecha vencimiento</Label>
-              <Input
-                type="date"
-                value={fechaVencimiento}
-                onChange={(e) => setFechaVencimiento(e.target.value)}
-              />
+              <Input type="date" value={fechaVencimiento} onChange={(e) => setFechaVencimiento(e.target.value)} />
             </div>
           </div>
 
           <div>
             <Label>PDF</Label>
-            <Input
-              type="file"
-              accept="application/pdf"
-              onChange={(e) =>
-                setArchivo(e.target.files?.[0] || null)
-              }
-            />
+            <Input type="file" accept="application/pdf" onChange={(e) => setArchivo(e.target.files?.[0] || null)} />
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Guardando..." : "Crear factura"}
+              {loading ? "Guardando..." : invoice ? "Guardar cambios" : "Crear factura"}
             </Button>
           </DialogFooter>
         </form>
