@@ -42,7 +42,12 @@ export function InvoicesTab() {
 
       <InvoicesList searchQuery={searchQuery} onEdit={handleEdit} />
 
-      <InvoiceDialog invoice={selectedInvoice} open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+      <InvoiceDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onCreated={() => {/* refetch facturas */ }}
+      />
+
     </div>
   )
 }

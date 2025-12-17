@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { InvoicesTab } from "@/components/invoices-tab"
-import { ClientsTab } from "@/components/clients-tab"
 import { StatsCards } from "@/components/stats-cards"
 import { FileText, Users } from "lucide-react"
 
@@ -46,7 +45,6 @@ export function InvoicesDashboard() {
             </TabsContent>
 
             <TabsContent value="clients" className="space-y-4">
-              <ClientsTab />
             </TabsContent>
           </Tabs>
         </div>

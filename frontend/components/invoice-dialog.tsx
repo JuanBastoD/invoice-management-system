@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,235 +12,234 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Trash2 } from "lucide-react"
-
-interface InvoiceItem {
-  description: string
-  quantity: number
-  price: number
-}
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 
 interface InvoiceDialogProps {
-  invoice?: any
   open: boolean
   onOpenChange: (open: boolean) => void
+  onCreated: () => void
 }
 
-export function InvoiceDialog({ invoice, open, onOpenChange }: InvoiceDialogProps) {
-  const [formData, setFormData] = useState({
-    clientName: "",
-    date: "",
-    status: "pending" as "paid" | "pending" | "overdue",
-  })
-  const [items, setItems] = useState<InvoiceItem[]>([{ description: "", quantity: 1, price: 0 }])
+export function InvoiceDialog({ open, onOpenChange, onCreated }: InvoiceDialogProps) {
+  const [numeroFactura, setNumeroFactura] = useState("")
+  const [tipo, setTipo] = useState("")
+  const [entidad, setEntidad] = useState("")
+  const [estado, setEstado] = useState("pendiente")
+  const [monto, setMonto] = useState("")
+  const [descripcion, setDescripcion] = useState("")
+  const [fechaEmision, setFechaEmision] = useState("")
+  const [fechaVencimiento, setFechaVencimiento] = useState("")
+  const [archivo, setArchivo] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (invoice) {
-      setFormData({
-        clientName: invoice.clientName,
-        date: invoice.date,
-        status: invoice.status,
-      })
-      setItems(invoice.items)
-    } else {
-      setFormData({ clientName: "", date: "", status: "pending" })
-      setItems([{ description: "", quantity: 1, price: 0 }])
+    if (!open) {
+      setNumeroFactura("")
+      setTipo("")
+      setEntidad("")
+      setEstado("pendiente")
+      setMonto("")
+      setDescripcion("")
+      setFechaEmision("")
+      setFechaVencimiento("")
+      setArchivo(null)
+      setLoading(false)
     }
-  }, [invoice, open])
+  }, [open])
 
-  const handleAddItem = () => {
-    setItems([...items, { description: "", quantity: 1, price: 0 }])
-  }
-
-  const handleRemoveItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index))
-  }
-
-  const handleItemChange = (index: number, field: keyof InvoiceItem, value: string | number) => {
-    const newItems = [...items]
-    newItems[index] = { ...newItems[index], [field]: value }
-    setItems(newItems)
-  }
-
-  const calculateSubtotal = () => {
-    return items.reduce((sum, item) => sum + item.quantity * item.price, 0)
-  }
-
-  const calculateTax = () => {
-    return calculateSubtotal() * 0.16 // 16% IVA
-  }
-
-  const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax()
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Aquí se integrará con el backend de Persona A
-    console.log("Invoice data:", { ...formData, items, total: calculateTotal() })
-    onOpenChange(false)
+
+    if (!archivo) {
+      alert("Debes adjuntar un PDF")
+      return
+    }
+
+    if (!numeroFactura || !tipo || !entidad || !fechaEmision || !monto) {
+      alert("Completa todos los campos obligatorios")
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      // 1️⃣ Subir PDF
+      const formData = new FormData()
+      formData.append("pdf", archivo)
+
+      const pdfRes = await fetch("http://localhost:8000/upload/pdf", {
+        method: "POST",
+        body: formData,
+      })
+
+
+      if (!pdfRes.ok) throw new Error("Error subiendo PDF")
+
+      const { path_pdf } = await pdfRes.json()
+
+      // 2️⃣ Crear factura
+      const facturaData = {
+        numero_factura: numeroFactura,
+        tipo,
+        entidad,
+        estado,
+        fecha_emision: fechaEmision,
+        fecha_vencimiento: fechaVencimiento || null,
+        monto: parseFloat(monto),
+        descripcion: descripcion || null,
+        path_pdf,
+      }
+
+
+      const facturaRes = await fetch("http://localhost:8000/facturas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(facturaData),
+      })
+
+      if (!facturaRes.ok) {
+        const err = await facturaRes.json()
+        console.error("Error backend:", err)
+        throw new Error("Error creando factura")
+      }
+
+      onOpenChange(false)
+      onCreated()
+    } catch (err: any) {
+      console.error(err)
+      alert("No se pudo crear la factura: " + (err.message || err))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{invoice ? "Editar Factura" : "Nueva Factura"}</DialogTitle>
+          <DialogTitle>Nueva Factura</DialogTitle>
           <DialogDescription>
-            {invoice
-              ? "Modifica los datos de la factura existente."
-              : "Completa los datos para crear una nueva factura."}
+            Registra una nueva factura en el sistema.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="clientName">Cliente</Label>
-              <Input
-                id="clientName"
-                value={formData.clientName}
-                onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                placeholder="Nombre del cliente"
-                required
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>Número de factura</Label>
+            <Input
+              value={numeroFactura}
+              onChange={(e) => setNumeroFactura(e.target.value)}
+              placeholder="Ej: ASU17266178D"
+              required
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="date">Fecha</Label>
+          <div>
+            <Label>Tipo</Label>
+            <Select value={tipo} onValueChange={setTipo} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona el tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="entrada">Entrada</SelectItem>
+                <SelectItem value="salida">Salida</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Entidad</Label>
+            <Input
+              value={entidad}
+              onChange={(e) => setEntidad(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <Label>Estado</Label>
+            <Select value={estado} onValueChange={setEstado}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pendiente">Pendiente</SelectItem>
+                <SelectItem value="pagada">Pagada</SelectItem>
+                <SelectItem value="vencida">Vencida</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Monto</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <Label>Descripción</Label>
+            <Textarea
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Fecha emisión</Label>
               <Input
-                id="date"
                 type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                value={fechaEmision}
+                onChange={(e) => setFechaEmision(e.target.value)}
                 required
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Estado</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value: any) => setFormData({ ...formData, status: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pendiente</SelectItem>
-                  <SelectItem value="paid">Pagada</SelectItem>
-                  <SelectItem value="overdue">Vencida</SelectItem>
-                </SelectContent>
-              </Select>
+            <div>
+              <Label>Fecha vencimiento</Label>
+              <Input
+                type="date"
+                value={fechaVencimiento}
+                onChange={(e) => setFechaVencimiento(e.target.value)}
+              />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-base">Artículos / Servicios</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddItem}
-                className="gap-2 bg-transparent"
-              >
-                <Plus className="h-4 w-4" />
-                Agregar
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              {items.map((item, index) => (
-                <Card key={index}>
-                  <CardContent className="p-4">
-                    <div className="grid gap-3 sm:grid-cols-[1fr,100px,120px,auto]">
-                      <div className="space-y-1">
-                        <Label htmlFor={`description-${index}`} className="text-xs">
-                          Descripción
-                        </Label>
-                        <Input
-                          id={`description-${index}`}
-                          value={item.description}
-                          onChange={(e) => handleItemChange(index, "description", e.target.value)}
-                          placeholder="Descripción del artículo"
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor={`quantity-${index}`} className="text-xs">
-                          Cantidad
-                        </Label>
-                        <Input
-                          id={`quantity-${index}`}
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => handleItemChange(index, "quantity", Number(e.target.value))}
-                          required
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor={`price-${index}`} className="text-xs">
-                          Precio
-                        </Label>
-                        <Input
-                          id={`price-${index}`}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.price}
-                          onChange={(e) => handleItemChange(index, "price", Number(e.target.value))}
-                          required
-                        />
-                      </div>
-
-                      <div className="flex items-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveItem(index)}
-                          disabled={items.length === 1}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          <div>
+            <Label>PDF</Label>
+            <Input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) =>
+                setArchivo(e.target.files?.[0] || null)
+              }
+            />
           </div>
-
-          <Card className="bg-muted/50">
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Subtotal:</span>
-                  <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>IVA (16%):</span>
-                  <span className="font-medium">${calculateTax().toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between border-t border-border pt-2 text-base font-bold">
-                  <span>Total:</span>
-                  <span>${calculateTotal().toFixed(2)}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
-            <Button type="submit">{invoice ? "Guardar Cambios" : "Crear Factura"}</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Guardando..." : "Crear factura"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
