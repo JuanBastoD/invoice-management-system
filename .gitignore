@@ -18,3 +18,4 @@ src/services/__pycache__/database_service.cpython-313.pyc
 *.pdf
 *.db
 test/
+backend/database/facturas.db
